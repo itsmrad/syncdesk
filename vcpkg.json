@@ -1,0 +1,26 @@
+{
+  "name": "audiomatrix",
+  "version-semver": "0.1.0",
+  "description": "Cross-platform audio routing matrix — route any source to any sink",
+  "builtin-baseline": "3fb54e6717ea6a48099b02798e82fafefb2d410e",
+  "dependencies": [
+    "opus",
+    "libsamplerate",
+    "nng",
+    "flatbuffers",
+    "spdlog",
+    "asio",
+    "readerwriterqueue"
+  ],
+  "default-features": [
+    "tests"
+  ],
+  "features": {
+    "tests": {
+      "description": "Optional test dependencies",
+      "dependencies": [
+        "catch2"
+      ]
+    }
+  }
+}

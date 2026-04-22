@@ -1,0 +1,40 @@
+// FlatBuffers schema for AudioMatrix control plane
+
+namespace am.control;
+
+enum DeviceType : byte { Source = 0, Sink = 1 }
+
+table DeviceInfo {
+    id: uint32;
+    name: string;
+    device_type: DeviceType;
+    sample_rate: uint32 = 48000;
+    channels: uint32 = 2;
+    address: string;
+    port: uint16;
+}
+
+table RouteCommand {
+    source_id: uint32;
+    sink_id: uint32;
+    gain: float = 1.0;
+    enabled: bool = true;
+}
+
+table DeviceList {
+    devices: [DeviceInfo];
+}
+
+table RouteTable {
+    routes: [RouteCommand];
+}
+
+union MessagePayload { DeviceList, RouteTable, RouteCommand }
+
+table ControlMessage {
+    timestamp_ms: uint64;
+    sender_id: uint32;
+    payload: MessagePayload;
+}
+
+root_type ControlMessage;
