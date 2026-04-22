@@ -48,6 +48,7 @@ public:
 private:
     struct Impl;
     std::unique_ptr<Impl> impl_;
+    std::mutex callback_mutex_;
     RtpPacketCallback callback_;
     std::atomic<std::uint64_t> packets_received_{0};
 

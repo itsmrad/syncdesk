@@ -35,7 +35,7 @@ TEST_CASE("AudioMatrix: set gain", "[matrix]") {
     matrix.set_gain(1, 10, 0.8F);
     matrix.commit();
 
-    const auto* table = matrix.active_table();
+    auto table = matrix.active_table();
     REQUIRE(table != nullptr);
     REQUIRE(table->routes.size() == 1);
     REQUIRE(table->routes[0].gain == Catch::Approx(0.8F));
@@ -48,7 +48,7 @@ TEST_CASE("AudioMatrix: duplicate add updates gain", "[matrix]") {
     matrix.commit();
 
     REQUIRE(matrix.route_count() == 1);
-    const auto* table = matrix.active_table();
+    auto table = matrix.active_table();
     REQUIRE(table->routes[0].gain == Catch::Approx(0.9F));
 }
 
@@ -58,7 +58,7 @@ TEST_CASE("AudioMatrix: active_table is lock-free readable", "[matrix]") {
     matrix.commit();
 
     // Simulate reading from "audio thread"
-    const auto* table = matrix.active_table();
+    auto table = matrix.active_table();
     REQUIRE(table != nullptr);
     REQUIRE(table->routes.size() == 1);
     REQUIRE(table->routes[0].source_id == 1);

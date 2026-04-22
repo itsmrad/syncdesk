@@ -62,6 +62,8 @@ int main() {
     std::signal(SIGINT, signal_handler);
     std::signal(SIGTERM, signal_handler);
 
+    bool all_milestones_ok = true;
+
     // ── Milestone 1: Device Enumeration ─────────────────────────────────
     spdlog::info("─── Milestone 1: Audio Device Enumeration ───");
     {
@@ -118,9 +120,13 @@ int main() {
                 spdlog::info("  Decoded {} samples, max error: {:.6f}",
                             decoded_samples * config.channels, max_diff);
                 spdlog::info("  ✓ Opus round-trip successful!");
+            } else {
+                spdlog::error("  ✗ Opus decoding failed");
+                all_milestones_ok = false;
             }
         } else {
             spdlog::error("  ✗ Opus encoding failed");
+            all_milestones_ok = false;
         }
     }
 
@@ -134,7 +140,7 @@ int main() {
         matrix.commit();
         spdlog::info("  Active routes: {}", matrix.route_count());
 
-        const auto* table = matrix.active_table();
+        auto table = matrix.active_table();
         if (table) {
             for (const auto& route : table->routes) {
                 spdlog::info("    {} -> {} (gain={:.1f}, {})",
@@ -161,8 +167,12 @@ int main() {
     }
 
     spdlog::info("═══════════════════════════════════════");
-    spdlog::info("  Phase 0 complete. All milestones passed.");
+    if (all_milestones_ok) {
+        spdlog::info("  Phase 0 complete. All milestones passed.");
+    } else {
+        spdlog::error("  Phase 0 failed. See errors above.");
+    }
     spdlog::info("═══════════════════════════════════════");
 
-    return 0;
+    return all_milestones_ok ? 0 : 1;
 }

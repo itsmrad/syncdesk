@@ -64,6 +64,7 @@ private:
     // Jitter estimation (exponential moving average)
     float jitter_estimate_ms_{0.0F};
     std::int64_t last_arrival_us_{0};
+    std::uint16_t last_sequence_received_{0};
 };
 
 }  // namespace am::core

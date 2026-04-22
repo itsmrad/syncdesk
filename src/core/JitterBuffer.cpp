@@ -23,19 +23,26 @@ void JitterBuffer::push(AudioFrame frame) {
         std::chrono::steady_clock::now().time_since_epoch()
     ).count();
 
-    if (last_arrival_us_ > 0) {
-        const auto expected_interval_us =
-            static_cast<std::int64_t>(config_.frame_size_samples) * 1'000'000 /
-            static_cast<std::int64_t>(config_.sample_rate);
-        const auto actual_interval_us = now - last_arrival_us_;
-        const auto deviation_us = std::abs(actual_interval_us - expected_interval_us);
-        const auto deviation_ms = static_cast<float>(deviation_us) / 1000.0F;
+    const bool is_first = (last_arrival_us_ == 0);
+    const auto seq_diff = static_cast<std::int16_t>(
+        frame.sequence_number - last_sequence_received_);
 
-        // Exponential moving average (RFC 3550 algorithm)
-        constexpr float kAlpha = 1.0F / 16.0F;
-        jitter_estimate_ms_ += kAlpha * (deviation_ms - jitter_estimate_ms_);
+    if (is_first || seq_diff > 0) {
+        if (!is_first) {
+            const auto expected_interval_us =
+                static_cast<std::int64_t>(config_.frame_size_samples) * 1'000'000 /
+                static_cast<std::int64_t>(config_.sample_rate) * seq_diff;
+            const auto actual_interval_us = now - last_arrival_us_;
+            const auto deviation_us = std::abs(actual_interval_us - expected_interval_us);
+            const auto deviation_ms = static_cast<float>(deviation_us) / 1000.0F;
+
+            // Exponential moving average (RFC 3550 algorithm)
+            constexpr float kAlpha = 1.0F / 16.0F;
+            jitter_estimate_ms_ += kAlpha * (deviation_ms - jitter_estimate_ms_);
+        }
+        last_arrival_us_ = now;
+        last_sequence_received_ = frame.sequence_number;
     }
-    last_arrival_us_ = now;
 
     // Insert in sequence order
     const auto it = std::lower_bound(buffer_.begin(), buffer_.end(), frame,
@@ -47,6 +54,25 @@ void JitterBuffer::push(AudioFrame frame) {
             return diff < 0;
         });
     buffer_.insert(it, std::move(frame));
+
+    // Enforce max depth
+    const auto max_depth_frames = static_cast<std::size_t>(
+        config_.max_depth_ms * config_.sample_rate /
+        (1000 * config_.frame_size_samples));
+
+    std::size_t dropped = 0;
+    while (buffer_.size() > max_depth_frames) {
+        if (primed_ && buffer_.front().sequence_number == next_sequence_) {
+            ++next_sequence_;
+        }
+        buffer_.pop_front();
+        ++dropped;
+    }
+    
+    if (dropped > 0) {
+        spdlog::warn("JitterBuffer depth exceeded {}ms max, dropped {} frames",
+                     config_.max_depth_ms, dropped);
+    }
 
     const auto target_depth = static_cast<std::size_t>(
         config_.target_depth_ms * config_.sample_rate /
@@ -63,6 +89,27 @@ AudioFrame JitterBuffer::pop() {
 
     if (!primed_ || buffer_.empty()) {
         // Underrun — return silence
+        AudioFrame silence;
+        silence.sequence_number = next_sequence_++;
+        silence.samples.resize(
+            static_cast<std::size_t>(config_.frame_size_samples) * config_.channels,
+            0.0F);
+        return silence;
+    }
+
+    // Drop stale frames (sequence < next_sequence_ with wrap-around)
+    while (!buffer_.empty()) {
+        const auto diff = static_cast<std::int16_t>(
+            buffer_.front().sequence_number - next_sequence_);
+        if (diff < 0) {
+            buffer_.pop_front();
+        } else {
+            break;
+        }
+    }
+
+    if (buffer_.empty()) {
+        // Underrun after dropping stale frames
         AudioFrame silence;
         silence.sequence_number = next_sequence_++;
         silence.samples.resize(

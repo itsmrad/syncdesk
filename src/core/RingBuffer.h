@@ -8,6 +8,7 @@
 
 #include <cstddef>
 #include <optional>
+#include <utility>
 #include <readerwriterqueue.h>
 
 namespace am::core {

@@ -44,8 +44,27 @@ TEST_CASE("RtpHeader: version field is correct", "[rtp]") {
 TEST_CASE("RtpHeader: sequence number wraps at 16-bit", "[rtp]") {
     RtpHeader h;
     h.sequence_number = 65535;
+    
+    // Simulate sender incrementing sequence
+    h.sequence_number++; 
+    
     const auto bytes = h.serialize();
     const auto recovered = RtpHeader::deserialize(
         std::span<const std::uint8_t, 12>(bytes));
-    REQUIRE(recovered.sequence_number == 65535);
+    REQUIRE(recovered.sequence_number == 0);
+}
+
+TEST_CASE("RtpHeader: padding, extension, and csrc_count round-trip", "[rtp]") {
+    RtpHeader original;
+    original.padding = true;
+    original.extension = true;
+    original.csrc_count = 5;
+    
+    const auto bytes = original.serialize();
+    const auto recovered = RtpHeader::deserialize(
+        std::span<const std::uint8_t, 12>(bytes));
+        
+    REQUIRE(recovered.padding == true);
+    REQUIRE(recovered.extension == true);
+    REQUIRE(recovered.csrc_count == 5);
 }

@@ -61,6 +61,12 @@ OpusCodec& OpusCodec::operator=(OpusCodec&& other) noexcept {
 
 int OpusCodec::encode(std::span<const float> pcm,
                       std::span<std::uint8_t> output) {
+    const std::size_t required_samples = config_.frame_size_samples * config_.channels;
+    if (pcm.size() < required_samples) {
+        spdlog::error("Opus encode error: invalid input size ({} < {})", pcm.size(), required_samples);
+        return OPUS_BAD_ARG;
+    }
+
     const int result = opus_encode_float(
         encoder_,
         pcm.data(),
@@ -76,6 +82,12 @@ int OpusCodec::encode(std::span<const float> pcm,
 
 int OpusCodec::decode(std::span<const std::uint8_t> data,
                       std::span<float> output) {
+    const std::size_t required_samples = config_.frame_size_samples * config_.channels;
+    if (output.size() < required_samples) {
+        spdlog::error("Opus decode error: invalid output size ({} < {})", output.size(), required_samples);
+        return OPUS_BAD_ARG;
+    }
+
     const int result = opus_decode_float(
         decoder_,
         data.data(),
@@ -91,6 +103,12 @@ int OpusCodec::decode(std::span<const std::uint8_t> data,
 }
 
 int OpusCodec::decode_plc(std::span<float> output) {
+    const std::size_t required_samples = config_.frame_size_samples * config_.channels;
+    if (output.size() < required_samples) {
+        spdlog::error("Opus PLC error: invalid output size ({} < {})", output.size(), required_samples);
+        return OPUS_BAD_ARG;
+    }
+
     // Pass nullptr for data to trigger PLC
     const int result = opus_decode_float(
         decoder_,

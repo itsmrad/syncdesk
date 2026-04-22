@@ -41,6 +41,7 @@ find_package(spdlog CONFIG REQUIRED)
 find_package(nng CONFIG REQUIRED)
 find_package(flatbuffers CONFIG REQUIRED)
 find_package(Catch2 3 CONFIG REQUIRED)
+find_package(readerwriterqueue CONFIG REQUIRED)
 
 # Standalone Asio (header-only)
 find_path(ASIO_INCLUDE_DIR asio.hpp)
@@ -56,7 +57,6 @@ target_compile_definitions(asio INTERFACE ASIO_STANDALONE ASIO_NO_DEPRECATED)
 add_library(third_party INTERFACE)
 target_include_directories(third_party SYSTEM INTERFACE
     ${CMAKE_SOURCE_DIR}/third_party
-    ${CMAKE_SOURCE_DIR}/third_party/readerwriterqueue
 )
 
 # ── Core library ────────────────────────────────────────────────────────
@@ -68,6 +68,7 @@ add_library(am_core STATIC
 target_include_directories(am_core PUBLIC src)
 target_link_libraries(am_core PUBLIC
     third_party
+    readerwriterqueue::readerwriterqueue
     spdlog::spdlog
 )
 

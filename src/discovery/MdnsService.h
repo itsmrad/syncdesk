@@ -36,18 +36,11 @@ public:
     void on_service_found(ServiceFoundCallback callback);
     void on_service_lost(ServiceLostCallback callback);
     [[nodiscard]] std::vector<ServiceInfo> known_services() const;
-    [[nodiscard]] bool is_running() const noexcept { return running_.load(); }
+    [[nodiscard]] bool is_running() const noexcept;
 
 private:
-    std::string service_name_;
-    std::uint16_t port_;
-    std::atomic<bool> running_{false};
-    std::thread browse_thread_;
-    ServiceFoundCallback on_found_;
-    ServiceLostCallback on_lost_;
     struct Impl;
     std::unique_ptr<Impl> impl_;
-    void browse_loop();
 };
 
 }  // namespace am::discovery

@@ -11,6 +11,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <vector>
+#include <memory>
+#include <mutex>
 
 namespace am::core {
 
@@ -43,11 +45,9 @@ public:
     AudioMatrix();
     ~AudioMatrix();
 
-    // Non-copyable, non-movable (owns atomic state)
+    // Non-copyable, non-movable
     AudioMatrix(const AudioMatrix&) = delete;
     AudioMatrix& operator=(const AudioMatrix&) = delete;
-    AudioMatrix(AudioMatrix&&) = delete;
-    AudioMatrix& operator=(AudioMatrix&&) = delete;
 
     /// Add a route to the pending table.
     void add_route(DeviceId source, DeviceId sink, float gain = 1.0F);
@@ -62,17 +62,15 @@ public:
     void commit();
 
     /// Returns the currently active route table (lock-free read).
-    [[nodiscard]] const RouteTable* active_table() const noexcept;
+    /// The reader keeps the snapshot alive.
+    [[nodiscard]] std::shared_ptr<const RouteTable> active_table() const noexcept;
 
     /// Number of active routes.
     [[nodiscard]] std::size_t route_count() const noexcept;
 
 private:
-    RouteTable tables_[2];                    ///< Double-buffered tables.
-    std::atomic<RouteTable*> active_{nullptr}; ///< Points to the live table.
-    int pending_index_{0};                     ///< Index of the table being edited.
-
-    [[nodiscard]] RouteTable& pending() noexcept;
+    RouteTable pending_table_;
+    std::shared_ptr<const RouteTable> active_;
 };
 
 }  // namespace am::core

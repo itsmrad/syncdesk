@@ -12,6 +12,15 @@ struct AudioEngine::Impl {
     bool context_initialized{false};
     bool device_initialized{false};
     AudioCallback user_callback;
+    StreamHandle active_handle{0};
+    StreamHandle next_handle{1};
+
+    static void data_callback(ma_device* pDevice, void* pOutput, const void* pInput, ma_uint32 frameCount) {
+        auto* impl = static_cast<AudioEngine::Impl*>(pDevice->pUserData);
+        if (impl && impl->user_callback) {
+            impl->user_callback(static_cast<float*>(pOutput), static_cast<const float*>(pInput), frameCount);
+        }
+    }
 };
 
 AudioEngine::AudioEngine()
@@ -71,31 +80,91 @@ std::vector<AudioDeviceInfo> AudioEngine::enumerate_devices() const {
     return result;
 }
 
-bool AudioEngine::start_capture(std::uint32_t /*device_id*/, AudioCallback callback) {
+AudioEngine::StreamHandle AudioEngine::start_capture(std::uint32_t /*device_id*/, AudioCallback callback) {
+    if (impl_->device_initialized) {
+        spdlog::error("AudioEngine is already running a stream");
+        return kInvalidHandle;
+    }
+
+    ma_device_config config = ma_device_config_init(ma_device_type_capture);
+    config.capture.format = ma_format_f32;
+    config.capture.channels = 2;
+    config.sampleRate = 48000;
+    config.dataCallback = Impl::data_callback;
+    config.pUserData = impl_.get();
+
+    if (ma_device_init(&impl_->context, &config, &impl_->device) != MA_SUCCESS) {
+        spdlog::error("Failed to initialize capture device");
+        return kInvalidHandle;
+    }
+
+    if (ma_device_start(&impl_->device) != MA_SUCCESS) {
+        spdlog::error("Failed to start capture device");
+        ma_device_uninit(&impl_->device);
+        return kInvalidHandle;
+    }
+
     impl_->user_callback = std::move(callback);
-    // TODO: implement device selection and start capture
-    spdlog::info("AudioEngine capture start (stub)");
-    return true;
+    impl_->device_initialized = true;
+    impl_->active_handle = impl_->next_handle++;
+    
+    spdlog::info("AudioEngine capture started (handle={})", impl_->active_handle);
+    return impl_->active_handle;
 }
 
-bool AudioEngine::start_playback(std::uint32_t /*device_id*/, AudioCallback callback) {
+AudioEngine::StreamHandle AudioEngine::start_playback(std::uint32_t /*device_id*/, AudioCallback callback) {
+    if (impl_->device_initialized) {
+        spdlog::error("AudioEngine is already running a stream");
+        return kInvalidHandle;
+    }
+
+    ma_device_config config = ma_device_config_init(ma_device_type_playback);
+    config.playback.format = ma_format_f32;
+    config.playback.channels = 2;
+    config.sampleRate = 48000;
+    config.dataCallback = Impl::data_callback;
+    config.pUserData = impl_.get();
+
+    if (ma_device_init(&impl_->context, &config, &impl_->device) != MA_SUCCESS) {
+        spdlog::error("Failed to initialize playback device");
+        return kInvalidHandle;
+    }
+
+    if (ma_device_start(&impl_->device) != MA_SUCCESS) {
+        spdlog::error("Failed to start playback device");
+        ma_device_uninit(&impl_->device);
+        return kInvalidHandle;
+    }
+
     impl_->user_callback = std::move(callback);
-    // TODO: implement device selection and start playback
-    spdlog::info("AudioEngine playback start (stub)");
-    return true;
+    impl_->device_initialized = true;
+    impl_->active_handle = impl_->next_handle++;
+
+    spdlog::info("AudioEngine playback started (handle={})", impl_->active_handle);
+    return impl_->active_handle;
 }
 
 void AudioEngine::stop() {
     if (impl_->device_initialized) {
         ma_device_uninit(&impl_->device);
         impl_->device_initialized = false;
+        impl_->active_handle = kInvalidHandle;
+        spdlog::info("AudioEngine stopped all streams");
+    }
+}
+
+void AudioEngine::stop(StreamHandle handle) {
+    if (impl_->device_initialized && impl_->active_handle == handle) {
+        stop();
     }
 }
 
 bool AudioEngine::is_running() const noexcept {
-    // Only check the flag — don't call ma_device_is_started on
-    // an uninitialized device (UB).
     return impl_->device_initialized;
+}
+
+bool AudioEngine::is_running(StreamHandle handle) const noexcept {
+    return impl_->device_initialized && impl_->active_handle == handle;
 }
 
 }  // namespace am::platform

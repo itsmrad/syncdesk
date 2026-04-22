@@ -9,7 +9,18 @@
     "nng",
     "flatbuffers",
     "spdlog",
-    "catch2",
-    "asio"
-  ]
+    "asio",
+    "readerwriterqueue"
+  ],
+  "default-features": [
+    "tests"
+  ],
+  "features": {
+    "tests": {
+      "description": "Optional test dependencies",
+      "dependencies": [
+        "catch2"
+      ]
+    }
+  }
 }

@@ -13,16 +13,14 @@ namespace {
 /// Generate a 440Hz sine test tone.
 std::vector<float> make_sine_tone(int sample_rate, int channels, int frame_size) {
     std::vector<float> pcm(static_cast<std::size_t>(frame_size * channels));
-    float phase = 0.0F;
     constexpr float kFreq = 440.0F;
     for (int i = 0; i < frame_size; ++i) {
         const float sample = 0.3F * std::sin(
             2.0F * std::numbers::pi_v<float> * kFreq *
-            phase / static_cast<float>(sample_rate));
+            static_cast<float>(i) / static_cast<float>(sample_rate));
         for (int ch = 0; ch < channels; ++ch) {
             pcm[static_cast<std::size_t>(i * channels + ch)] = sample;
         }
-        phase += 1.0F;
     }
     return pcm;
 }

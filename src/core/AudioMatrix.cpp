@@ -6,19 +6,14 @@
 namespace am::core {
 
 AudioMatrix::AudioMatrix() {
-    active_.store(&tables_[0], std::memory_order_release);
-    pending_index_ = 1;
-    spdlog::info("AudioMatrix initialized (double-buffered routing)");
+    active_ = std::make_shared<RouteTable>();
+    spdlog::info("AudioMatrix initialized (atomic shared_ptr routing)");
 }
 
 AudioMatrix::~AudioMatrix() = default;
 
-RouteTable& AudioMatrix::pending() noexcept {
-    return tables_[pending_index_];
-}
-
 void AudioMatrix::add_route(DeviceId source, DeviceId sink, float gain) {
-    auto& table = pending();
+    auto& table = pending_table_;
 
     // Check for duplicate
     const auto it = std::find_if(table.routes.begin(), table.routes.end(),
@@ -37,7 +32,7 @@ void AudioMatrix::add_route(DeviceId source, DeviceId sink, float gain) {
 }
 
 void AudioMatrix::remove_route(DeviceId source, DeviceId sink) {
-    auto& table = pending();
+    auto& table = pending_table_;
     const auto it = std::remove_if(table.routes.begin(), table.routes.end(),
         [source, sink](const Route& r) {
             return r.source_id == source && r.sink_id == sink;
@@ -50,7 +45,7 @@ void AudioMatrix::remove_route(DeviceId source, DeviceId sink) {
 }
 
 void AudioMatrix::set_gain(DeviceId source, DeviceId sink, float gain) {
-    auto& table = pending();
+    auto& table = pending_table_;
     const auto it = std::find_if(table.routes.begin(), table.routes.end(),
         [source, sink](const Route& r) {
             return r.source_id == source && r.sink_id == sink;
@@ -63,28 +58,21 @@ void AudioMatrix::set_gain(DeviceId source, DeviceId sink, float gain) {
 }
 
 void AudioMatrix::commit() {
-    // Swap: make the pending table active, then copy its state to the old
-    // active table so it becomes the new pending.
-    const int new_active_index = pending_index_;
-    const int new_pending_index = (pending_index_ == 0) ? 1 : 0;
+    // Create a new snapshot from the pending table
+    auto new_snapshot = std::make_shared<RouteTable>(pending_table_);
+    
+    // Atomically replace the active snapshot
+    std::atomic_store_explicit(&active_, std::shared_ptr<const RouteTable>(new_snapshot), std::memory_order_release);
 
-    active_.store(&tables_[new_active_index], std::memory_order_release);
-    pending_index_ = new_pending_index;
-
-    // Copy the now-active table into the new pending table so future edits
-    // start from the current state.
-    tables_[new_pending_index] = tables_[new_active_index];
-
-    spdlog::debug("Route table committed ({} routes active)",
-                  tables_[new_active_index].routes.size());
+    spdlog::debug("Route table committed ({} routes active)", new_snapshot->routes.size());
 }
 
-const RouteTable* AudioMatrix::active_table() const noexcept {
-    return active_.load(std::memory_order_acquire);
+std::shared_ptr<const RouteTable> AudioMatrix::active_table() const noexcept {
+    return std::atomic_load_explicit(&active_, std::memory_order_acquire);
 }
 
 std::size_t AudioMatrix::route_count() const noexcept {
-    const auto* table = active_table();
+    auto table = active_table();
     return table ? table->routes.size() : 0;
 }
 

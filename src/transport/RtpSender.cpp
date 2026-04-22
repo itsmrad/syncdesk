@@ -46,11 +46,19 @@ RtpHeader RtpHeader::deserialize(std::span<const std::uint8_t, 12> data) noexcep
     h.csrc_count = data[0] & 0x0F;
     h.marker     = (data[1] & 0x80) != 0;
     h.payload_type = data[1] & 0x7F;
-    h.sequence_number = static_cast<std::uint16_t>((data[2] << 8) | data[3]);
+    h.sequence_number = static_cast<std::uint16_t>(
+        (static_cast<std::uint16_t>(data[2]) << 8) |
+         static_cast<std::uint16_t>(data[3]));
     h.timestamp = static_cast<std::uint32_t>(
-        (data[4] << 24) | (data[5] << 16) | (data[6] << 8) | data[7]);
+        (static_cast<std::uint32_t>(data[4]) << 24) |
+        (static_cast<std::uint32_t>(data[5]) << 16) |
+        (static_cast<std::uint32_t>(data[6]) << 8) |
+         static_cast<std::uint32_t>(data[7]));
     h.ssrc = static_cast<std::uint32_t>(
-        (data[8] << 24) | (data[9] << 16) | (data[10] << 8) | data[11]);
+        (static_cast<std::uint32_t>(data[8]) << 24) |
+        (static_cast<std::uint32_t>(data[9]) << 16) |
+        (static_cast<std::uint32_t>(data[10]) << 8) |
+         static_cast<std::uint32_t>(data[11]));
     return h;
 }
 
