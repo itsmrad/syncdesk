@@ -1,0 +1,24 @@
+# Build artifacts
+build/
+build-*/
+cmake-build-*/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+.cache/
+
+# vcpkg local install cache
+vcpkg_installed/
+
+# Compiled objects
+*.o
+*.a
+*.so
+*.dylib
+*.dll
+*.exe
